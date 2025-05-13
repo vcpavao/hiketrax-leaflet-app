@@ -1,33 +1,49 @@
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import { useEffect, useState } from "react";
 import "leaflet/dist/leaflet.css";
-import type { Feature, FeatureCollection, GeoJsonObject, Geometry } from 'geojson';
-import type { Layer, Popup, PopupEvent, LeafletMouseEvent } from 'leaflet';
+import type {
+  Feature,
+  FeatureCollection,
+  Geometry,
+} from "geojson";
+import type { Layer, Popup, PopupEvent, LeafletMouseEvent } from "leaflet";
+import MapView from "./layout/MapView";
 
 export default function App() {
   const [loading, setLoading] = useState(true);
-  const [hikingTracks, setHikingTracks] = useState<FeatureCollection<Geometry>[]>([])
+  const [hikingTracks, setHikingTracks] = useState<
+    FeatureCollection<Geometry>[]
+  >([]);
+  const [townDistances, setTownDistances] = useState<
+    FeatureCollection<Geometry>[]
+  >([]);
+
+  const serverEndpoint = "http://localhost:3000";
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
 
       try {
-        const [res1, res2] = await Promise.all([
-          fetch("http://localhost:3000/api/tracks"),
-          fetch("http://localhost:3000/api/town-distances"),
+        const [res1, res2 /* res3 */] = await Promise.all([
+          fetch(`${serverEndpoint}/api/tracks`),
+          fetch(`${serverEndpoint}/api/town-distances`),
+          //fetch(`${serverEndpoint}/api/county-distances`)
         ]);
-        if (!res1.ok || !res2.ok) throw new Error('API error');
+        if (!res1.ok || !res2.ok /* || !res3.ok */)
+          throw new Error("API error");
 
-        const [data1, data2] = await Promise.all([
+        const [data1, data2 /*, data3*/] = await Promise.all([
           res1.json(),
           res2.json(),
+          //res3.json()
         ]);
         setHikingTracks(data1);
-        console.log(data2)
+        setTownDistances(data2);
+        //console.log(data3)
       } catch (err) {
         //setError(err.message);
-        console.log(err.message)
+        console.log(err.message);
       } finally {
         setLoading(false);
       }
@@ -40,29 +56,16 @@ export default function App() {
     feature: Feature<Geometry, { [name: string]: any }>,
     layer: Layer
   ) => {
-    const name = feature.properties?.name ?? 'Unnamed Track';
-    const description = feature.properties?.description ?? 'No description';
+    const name = feature.properties?.name ?? "Unnamed Track";
+    const description = feature.properties?.description ?? "No description";
 
     layer.bindPopup(`<strong>${name}</strong><br>${description}`);
 
-    layer.on('click', (e: LeafletMouseEvent) => {
+    layer.on("click", (e: LeafletMouseEvent) => {
       console.log(`Clicked on ${name}`);
     });
   };
 
   if (loading) return <div>Loading...</div>;
-  return (
-    <MapContainer
-      center={[42.37717, -71.91915]}
-      zoom={8}
-      scrollWheelZoom={false}
-      style={{ height: "600px" }}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      {hikingTracks && <GeoJSON data={hikingTracks} onEachFeature={onEachFeature} />}
-    </MapContainer>
-  );
+  return <MapView geoJsonData={hikingTracks} townDistances={townDistances} onEachFeature={onEachFeature} />;
 }
